@@ -22,21 +22,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#include "GenericSensor.h"
 
+#include "GenericSensor.h"
+#include "settings.h" 
 #include "DHTSensor.h"
 #include "DS18Sensor.h"
-
+#include <LogManagement.h>
 
 std::list<GenericSensor *> GenericSensor::FindSensors(int pin)
 {
-  std::list<GenericSensor *> ret = FindDhtSensors(pin);
-
+  std::list<GenericSensor *> ret ;
+  LOG("Start scanning pin ")
+  LOG_LN(pin)
+  LOG_LN("Looking for DHT sensor")
+ 
+  ret = FindDhtSensors(pin);
   if (ret.empty())
   {
+    LOG_LN("Found no DHT sensor, scanning for DS18")
     ret.merge(FindDs18Sensors(pin));
+  } else {
+    LOG_LN ("Found one")
   }
-
   return ret;
 }
 
@@ -44,9 +51,9 @@ std::list<GenericSensor *> GenericSensor::FindSensors(int pin)
 std::list<GenericSensor *> GenericSensor::FindDhtSensors(int pin)
 {
   std::list<GenericSensor *> ret;
-  DHTSensor *pPotentialSensor = new DHTSensor(pin);
+  DHTSensor *pPotentialSensor = new DHTSensor();
   
-  if (!pPotentialSensor->begin())
+  if (!pPotentialSensor->begin(pin))
   {
     delete pPotentialSensor;
   } else {
@@ -60,7 +67,9 @@ std::list<GenericSensor *> GenericSensor::FindDs18Sensors(int pin)
 {
   std::list<GenericSensor *> ret;
   DS18Sensor *pPotentialSensor = new DS18Sensor(pin);
-  if (!pPotentialSensor->begin())
+   LOG_LN("sensor created, use scan")
+   bool bRet = pPotentialSensor->scan();
+  if (!bRet)
   {
     delete pPotentialSensor;
   } else {  

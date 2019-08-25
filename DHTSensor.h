@@ -25,29 +25,20 @@ SOFTWARE.
 #ifndef _CGE_DHTSENSOR_H
 #define _CGE_DHTSENSOR_H
 
-#include <DHT.h>
+#include <DHTesp.h>
 #include <PubSubClient.h>
 #include "GenericSensor.h"
 
-class DHTSensor : public DHT, public GenericSensor
+class DHTSensor : public DHTesp, public GenericSensor
 {
   public:
-  DHTSensor (uint8_t pin, uint8_t sensorType = DHT_AUTO, uint16_t maxIntervalRead = READ_INTERVAL_DONT_CARE);
-
-  bool begin(void);
+  DHTSensor();
+  bool begin(uint8_t pin);
   
   void PublishMqttState(PubSubClient &mqttClient);
   std::string *GenerateWebData(void);
 
   void UpdateSensor(void);
-  
-  private:
-    float _minValidTemp;
-    float _maxValidTemp;
-    float _temperature;
-    float _minValidHumidity;
-    float _maxValidHumidity;
-    float _humidity; 
 };
 
 #endif

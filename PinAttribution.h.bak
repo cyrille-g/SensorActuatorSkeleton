@@ -29,7 +29,6 @@ SOFTWARE.
 #include <map>
 #include <list>
 
-#include "settings.h"
 #include "GenericSensor.h"
 #include "GenericActuator.h"
 
@@ -39,7 +38,6 @@ class PinAttribution
   public:
   PinAttribution(void);
   ~PinAttribution(void);
-  void begin(void);
   void ToggleOnboardLed(void);
   
   void PublishMqttState(PubSubClient &mqttClient);

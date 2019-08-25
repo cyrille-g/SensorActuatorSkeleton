@@ -27,15 +27,15 @@ SOFTWARE.
 
 #include <string>
 #include <list>
-#include <DHT.h>
 #include <PubSubClient.h>
+#include "settings.h"
 
 typedef enum 
 {
-  SENSOR_DHT11 = DHT11, /* 11 */
-  SENSOR_DHT21 = DHT21, /* 21 */
-  SENSOR_AM2301 = DHT21, /* 21 */
-  SENSOR_DHT22 = DHT22, /* 22 */
+  SENSOR_DHT11,
+  SENSOR_DHT21, 
+  SENSOR_AM2301,
+  SENSOR_DHT22, 
   
   SENSOR_DS18S20,
   SENSOR_DS18B20,

@@ -25,18 +25,16 @@ SOFTWARE.
 #include <ArduinoJson.h>
 
 #include "DS18Sensor.h"
-#include "settings.h"
-#include <LogManagement.h>
 
-DS18Sensor::DS18Sensor(uint8_t pin): _pin(pin)
+DS18Sensor::DS18Sensor(uint8_t pin)
 {
+  _pin = pin;
   _pOneWire = new OneWire(pin);
-  this->setOneWire(_pOneWire);
+  _pDallasTemp = new DallasTemperature(_pOneWire);
   _minValidTemp = -55.0;
   _maxValidTemp = 125.0;
   _sensorName = "";
   _stateTopic = "";
-   LOG_LN("Created onewire obj")
 }
 
 DS18Sensor::~DS18Sensor(void)
@@ -45,32 +43,15 @@ DS18Sensor::~DS18Sensor(void)
   delete  _pOneWire;
 }
 
-byte *DS18Sensor::GetDeviceAddress(void)
+inline byte *DS18Sensor::GetDeviceAddress(void)
 {
   return _sensorAddress;
 }
 
-bool DS18Sensor::scan(void)
+bool DS18Sensor::begin(void)
 {
-   LOG_LN("before dallas begin")
-   begin();
-   LOG_LN("dallas begin over, scanning")
-
-
-   if (getDS18Count() >0)
-   {
-    DeviceAddress localDeviceAddress;
-    for (int i = 0; i < getDeviceCount(); i++) {
-      
-    getAddress(localDeviceAddress, i);
-    if (validFamily(localDeviceAddress))  
-     memcpy(_sensorAddress, localDeviceAddress,8);
-     return true;
-    }
-   }
-  return false;     
-//     bool ret = scanPinForDS18();
-//  return ret;
+  DallasTemperature::begin();
+  return scanPinForDS18();
 }
 
 bool DS18Sensor::scanPinForDS18(void)
@@ -80,14 +61,14 @@ bool DS18Sensor::scanPinForDS18(void)
   byte addr[8];
 
   bool ret = false;
-  LOG_LN("start scanning");
+  
   if ( !_pOneWire->search(addr)) 
   {
     LOG_LN("No more addresses")
     _pOneWire->reset_search();
     return ret;
   }
- 
+  
   LOG("ROM = ");
   for( i = 0; i < 8; i++) 
   {
@@ -171,26 +152,27 @@ std::string *DS18Sensor::GenerateWebData(void)
   pWebData->append(_sensorName);
   pWebData->append("<BR> Mqtt state ");
   pWebData->append(_stateTopic);
-  pWebData->append("<BR><BR>Temperature: <p style=\"color:");
+  pWebData->append("<BR><BR>Temperature: <input type=\"color\" value=\"");
   /* add temperature */
   itoa(_temperature,localConvertBuffer,10);
   pWebData->append(localConvertBuffer);
   if ( _temperature == -51.0)
   {
-    pWebData->append("red\"> -- unavailable -- ");
+    pWebData->append("#FF0000\"> -- unavailable -- ");
   } else {
-    pWebData->append("green\"> ");
+    pWebData->append("#00FF00\"> ");
     itoa(_temperature,localConvertBuffer,10);
     pWebData->append(localConvertBuffer);
     pWebData->append(" °C");
   }
 
-  pWebData->append("</p></TD></TR></TABLE>");
+  pWebData->append("</input></TD></TR></TABLE>");
   return pWebData;
 }
 
 void DS18Sensor::UpdateSensor(void)
 {
-      requestTemperaturesByAddress(_sensorAddress);
-    _temperature = getTempC(_sensorAddress);
+  if (_pDallasTemp!=NULL)
+    _pDallasTemp->requestTemperaturesByAddress(_sensorAddress);
+    _temperature = _pDallasTemp->getTempC(_sensorAddress);
 }

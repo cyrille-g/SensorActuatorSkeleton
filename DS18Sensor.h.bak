@@ -22,46 +22,40 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#ifndef _CGE_PIN_ATTRIBUTION_H
-#define _CGE_PIN_ATTRIBUTION_H
+#ifndef _CGE_DS18SENSOR_H
+#define _CGE_DS18SENSOR_H
 
-#include <queue>
-#include <map>
-#include <list>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <PubSubClient.h>
+#include "LogManagement.h"
 
-#include "settings.h"
 #include "GenericSensor.h"
-#include "GenericActuator.h"
 
-class PinAttribution 
+class DS18Sensor : public DallasTemperature, public GenericSensor
 {
-
   public:
-  PinAttribution(void);
-  ~PinAttribution(void);
-  void begin(void);
-  void ToggleOnboardLed(void);
   
-  void PublishMqttState(PubSubClient &mqttClient);
-  void SubscribeToMqttSetTopic(PubSubClient &mqttClient);
+    DS18Sensor (uint8_t pin);
+    ~DS18Sensor(void);
+    bool begin(void);
+    inline byte *GetDeviceAddress(void);
+    
+    void PublishMqttState(PubSubClient &mqttClient);
+    std::string *GenerateWebData(void);
+    
+    void UpdateSensor(void);
 
-  void ProcessMqttRequest(char *topic, char* message);
-  void ProcessWebRequest(ESP8266WebServer *pWebServer);
-  
-  std::string *GenerateWebData(void);
-  void UpdateAllSensors(void);
-  
   private:
-  std::queue<int> _pinToScanActuators; 
-  std::queue<int> _pinToScanSensors;
-
-  int _onboardLedState;
-  
-  private:
-  std::map<int,std::list<GenericSensor *>> _sensors;
-  std::map<int,std::list<GenericActuator *>> _actuators;
+    bool scanPinForDS18(void);
+    
+    OneWire *_pOneWire;
+    DallasTemperature *_pDallasTemp;
+    int _pin;
+    byte _sensorAddress[8];
+    float _minValidTemp;
+    float _maxValidTemp;
+    float _temperature;
 };
 
-
-extern PinAttribution allSensorsAndActuators;
 #endif

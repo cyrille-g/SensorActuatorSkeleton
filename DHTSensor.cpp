@@ -23,47 +23,55 @@ SOFTWARE.
 ******************************************************************************/
 
 #include <ArduinoJson.h>
-
+#include "settings.h" 
+#include <LogManagement.h>
 #include "DHTSensor.h"
 
-DHTSensor::DHTSensor (uint8_t pin, uint8_t sensorType, uint16_t maxIntervalRead) :
-                      DHT(pin,sensorType,maxIntervalRead) 
+DHTSensor::DHTSensor (void)                       
 {
 
 };
 
-bool DHTSensor::begin(void)
+bool DHTSensor::begin(uint8_t pin)
 {
-  DHT::begin();
+//  DHTesp::setup(pin,AUTO_DETECT);
+if (pin != D5)
+{
+  return false;
+}
+else
+{
+ DHTesp::setup(pin,DHT22);
 
-  _stateTopic="PIN";
+  _stateTopic="STATE/PIN";
   char buf[10];  
-  sprintf(buf,"%d",getm_kSensorPin());
-  switch (getm_kSensorType())
+  sprintf(buf,"%d",pin);
+  switch (getModel())
   {
      case DHT11:
      _stateTopic.append("_DHT11");
-    _minValidTemp = 0.0;
-    _maxValidTemp = 50.0;
-    _minValidHumidity = 20.0;
-    _maxValidHumidity = 90.0;
+     _sensorType = SENSOR_DHT11;
+    LOG("Found DHT11 sensor")
      break;
      
      case DHT22:
      _stateTopic.append("_DHT22");
-
-     _minValidTemp = -55.0;
-    _maxValidTemp = 125.0;
-    _minValidHumidity = 0.0;
-    _maxValidHumidity = 100.0;
+     _sensorType = SENSOR_DHT22;
+     LOG("Found DHT22 sensor")
+    
      break;
         
      default:
+     _sensorType = SENSOR_UNDEF;
      _stateTopic="";
+      LOG("Found no sensor")
       return false;
      break;
   }
+  char *pName = &_stateTopic[6];
+   _sensorName.append(pName);
   return true;
+}
 }
 
 
@@ -74,15 +82,15 @@ void DHTSensor::PublishMqttState(PubSubClient &mqttClient)
   JsonObject& sensorRoot = jsonBuffer.createObject();
 
   /* first, add temperature */
-  sensorRoot[_sensorName.c_str()]["temperature"] = _temperature;
+  sensorRoot[_sensorName.c_str()]["temperature"] = temperature;
     
  /* add humidity and comfort values */
-  sensorRoot[_sensorName.c_str()]["humidity"] = _humidity;
+  sensorRoot[_sensorName.c_str()]["humidity"] = humidity;
 
-  float heatIndex = getHeatIndexC(_temperature,_humidity);
-  double dewPoint = getDewPoint(_temperature,_humidity,DEW_ACCURATE);
+  float heatIndex = computeHeatIndex(temperature,humidity);
+  double dewPoint = computeDewPoint(temperature,humidity);
   ComfortState comfortState;
-  float comfortRatio = getComfortRatio(_temperature,_humidity,comfortState);
+  float comfortRatio = getComfortRatio(comfortState,temperature,humidity);
   
   sensorRoot[_sensorName.c_str()]["heatIndex"] = heatIndex;
   sensorRoot[_sensorName.c_str()]["dewPoint"] = dewPoint;
@@ -99,87 +107,87 @@ void DHTSensor::PublishMqttState(PubSubClient &mqttClient)
 std::string *DHTSensor::GenerateWebData(void)
 {
   std::string *pWebData = new std::string("<TABLE><TR><TD>DHT Sensor ");
-  char localConvertBuffer[10];
+  char localConvertBuffer[20];
   /* add name */
   pWebData->append(_sensorName);
   pWebData->append("<BR> Mqtt state ");
   pWebData->append(_stateTopic);
-  pWebData->append("<BR><BR>Temperature: <input type=\"color\" value=\"");
+  pWebData->append("<BR><BR>Temperature: <p style=\"color:");
+
   /* add temperature */
-  itoa(_temperature,localConvertBuffer,10);
-  pWebData->append(localConvertBuffer);
-  if ( _temperature == -51.0)
+  if ( isnan(temperature))
   {
-    pWebData->append("#FF0000\"> -- unavailable -- ");
+    pWebData->append("red\"> -- unavailable -- ");
   } else {
-    pWebData->append("#00FF00\"> ");
-    itoa(_temperature,localConvertBuffer,10);
+    pWebData->append(":green\"> ");
+    sprintf(localConvertBuffer,"%f °C",temperature);
     pWebData->append(localConvertBuffer);
-    pWebData->append(" °C");
   }
 
-  pWebData->append("</input>");
+  pWebData->append("</p>");
 
-  pWebData->append("<BR><BR>Humidity: <input type=\"color\" value=\"");
+  pWebData->append("Humidity: <p style=\"color:");
   /* add humidity and comfort values */
-  if ( _humidity == -1.0)
+  if ( isnan(humidity))
   {
-    pWebData->append("#FF0000\"> -- unavailable -- ");
+    pWebData->append("red\"> -- unavailable -- ");
   } else {
-    pWebData->append("#00FF00\"> ");
-    itoa(_humidity,localConvertBuffer,10);
+    pWebData->append("green\"> ");
+   sprintf(localConvertBuffer,"%f %",humidity);
     pWebData->append(localConvertBuffer);
-    pWebData->append(" %");
   }
-  pWebData->append("</input><BR><BR>");
-  
-  float heatIndex = getHeatIndexC(_temperature,_humidity);
-  double dewPoint = getDewPoint(_temperature,_humidity,DEW_ACCURATE);
-  ComfortState comfortState;
-  float comfortRatio = getComfortRatio(_temperature,_humidity,comfortState);
-  pWebData->append(" Heat index: ");
-  itoa(heatIndex,localConvertBuffer,10);
-  pWebData->append(localConvertBuffer);
-  pWebData->append("<BR> Dew point: ");
-  itoa(dewPoint,localConvertBuffer,10);
-  pWebData->append(localConvertBuffer);
-  pWebData->append("<BR> Comfort ratio: ");
-  itoa(comfortRatio,localConvertBuffer,10);
-  pWebData->append(localConvertBuffer);
+  pWebData->append("</p>");
 
-  pWebData->append("<BR> ");
-  switch(comfortState)
+  if ((!isnan(temperature)) && (!isnan(humidity)))
   {
-     case Comfort_OK:
-       pWebData->append("Temperature and humidity ok");
-     break;
-     case Comfort_TooHot:
-      pWebData->append("Too hot");
-     break;
-     case Comfort_TooCold:
-      pWebData->append("Too cold");
-     break;
-     case Comfort_TooDry:
-      pWebData->append("Too dry");
-     break;
-     case Comfort_TooHumid:
-      pWebData->append("Too dry");
-     break;
-     case Comfort_HotAndHumid:
-      pWebData->append("Too hot and too humid");
-     break;
-     case Comfort_HotAndDry:
-      pWebData->append("Too hot and too dry");
-     break;
-     case Comfort_ColdAndHumid:
-      pWebData->append("Too cold and too humid");
-     break;
-     case Comfort_ColdAndDry:
-      pWebData->append("Too cold and too dry");
-     break;
-     default:
-      pWebData->append("unkonwn (something is broken !)");
-     break;
+    float heatIndex = computeHeatIndex(temperature,humidity);
+    double dewPoint = computeDewPoint(temperature,humidity);
+    ComfortState comfortState;
+    float comfortRatio = getComfortRatio(comfortState,temperature,humidity);
+    pWebData->append(" Heat index: ");
+    itoa(heatIndex,localConvertBuffer,10);
+    pWebData->append(localConvertBuffer);
+    pWebData->append("<BR> Dew point: ");
+    itoa(dewPoint,localConvertBuffer,10);
+    pWebData->append(localConvertBuffer);
+    pWebData->append("<BR> Comfort ratio: ");
+    itoa(comfortRatio,localConvertBuffer,10);
+    pWebData->append(localConvertBuffer);
+  
+    pWebData->append("<BR> ");
+    switch(comfortState)
+    {
+       case Comfort_OK:
+         pWebData->append("Temperature and humidity ok");
+       break;
+       case Comfort_TooHot:
+        pWebData->append("Too hot");
+       break;
+       case Comfort_TooCold:
+        pWebData->append("Too cold");
+       break;
+       case Comfort_TooDry:
+        pWebData->append("Too dry");
+       break;
+       case Comfort_TooHumid:
+        pWebData->append("Too dry");
+       break;
+       case Comfort_HotAndHumid:
+        pWebData->append("Too hot and too humid");
+       break;
+       case Comfort_HotAndDry:
+        pWebData->append("Too hot and too dry");
+       break;
+       case Comfort_ColdAndHumid:
+        pWebData->append("Too cold and too humid");
+       break;
+       case Comfort_ColdAndDry:
+        pWebData->append("Too cold and too dry");
+       break;
+       default:
+        pWebData->append("unkonwn (something is broken !)");
+       break;
+    }
   }
   pWebData->append("<BR><BR></TD></TR></TABLE>");
   return pWebData;
@@ -188,5 +196,5 @@ std::string *DHTSensor::GenerateWebData(void)
 
 void DHTSensor::UpdateSensor(void)
 {
-  readTempAndHumidity(&_temperature, &_humidity);
+  readSensor();
 }

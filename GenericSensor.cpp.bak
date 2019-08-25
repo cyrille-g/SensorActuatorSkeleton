@@ -22,46 +22,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#ifndef _CGE_PIN_ATTRIBUTION_H
-#define _CGE_PIN_ATTRIBUTION_H
-
-#include <queue>
-#include <map>
-#include <list>
-
-#include "settings.h"
 #include "GenericSensor.h"
-#include "GenericActuator.h"
 
-class PinAttribution 
+#include "DHTSensor.h"
+#include "DS18Sensor.h"
+
+
+std::list<GenericSensor *> GenericSensor::FindSensors(int pin)
 {
+  std::list<GenericSensor *> ret = FindDhtSensors(pin);
 
-  public:
-  PinAttribution(void);
-  ~PinAttribution(void);
-  void begin(void);
-  void ToggleOnboardLed(void);
+  if (ret.empty())
+  {
+    ret.merge(FindDs18Sensors(pin));
+  }
+
+  return ret;
+}
+
   
-  void PublishMqttState(PubSubClient &mqttClient);
-  void SubscribeToMqttSetTopic(PubSubClient &mqttClient);
-
-  void ProcessMqttRequest(char *topic, char* message);
-  void ProcessWebRequest(ESP8266WebServer *pWebServer);
+std::list<GenericSensor *> GenericSensor::FindDhtSensors(int pin)
+{
+  std::list<GenericSensor *> ret;
+  DHTSensor *pPotentialSensor = new DHTSensor(pin);
   
-  std::string *GenerateWebData(void);
-  void UpdateAllSensors(void);
-  
-  private:
-  std::queue<int> _pinToScanActuators; 
-  std::queue<int> _pinToScanSensors;
-
-  int _onboardLedState;
-  
-  private:
-  std::map<int,std::list<GenericSensor *>> _sensors;
-  std::map<int,std::list<GenericActuator *>> _actuators;
-};
+  if (!pPotentialSensor->begin())
+  {
+    delete pPotentialSensor;
+  } else {
+    ret.push_front((GenericSensor *)pPotentialSensor);
+  }
+  return ret;
+}
 
 
-extern PinAttribution allSensorsAndActuators;
-#endif
+std::list<GenericSensor *> GenericSensor::FindDs18Sensors(int pin)
+{
+  std::list<GenericSensor *> ret;
+  DS18Sensor *pPotentialSensor = new DS18Sensor(pin);
+  if (!pPotentialSensor->begin())
+  {
+    delete pPotentialSensor;
+  } else {  
+    ret.push_front((GenericSensor *)pPotentialSensor);
+  }
+  return ret;
+}

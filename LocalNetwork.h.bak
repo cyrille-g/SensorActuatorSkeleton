@@ -40,7 +40,6 @@ class LocalNetwork {
 
   public:
   LocalNetwork();
-  void begin(void);
   ESP8266WebServer GetWebServer(void);
   PubSubClient GetMqttClient(void);
 

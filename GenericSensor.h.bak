@@ -22,46 +22,54 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#ifndef _CGE_PIN_ATTRIBUTION_H
-#define _CGE_PIN_ATTRIBUTION_H
+#ifndef _CGE_GENERICSENSOR_H
+#define _CGE_GENERICSENSOR_H
 
-#include <queue>
-#include <map>
+#include <string>
 #include <list>
+#include <DHT.h>
+#include <PubSubClient.h>
 
-#include "settings.h"
-#include "GenericSensor.h"
-#include "GenericActuator.h"
-
-class PinAttribution 
+typedef enum 
 {
+  SENSOR_DHT11 = DHT11, /* 11 */
+  SENSOR_DHT21 = DHT21, /* 21 */
+  SENSOR_AM2301 = DHT21, /* 21 */
+  SENSOR_DHT22 = DHT22, /* 22 */
+  
+  SENSOR_DS18S20,
+  SENSOR_DS18B20,
+  SENSOR_DS18B22,
 
+  SENSOR_UNDEF = 0xFF
+} sensorType_t;
+
+
+class GenericSensor {
   public:
-  PinAttribution(void);
-  ~PinAttribution(void);
-  void begin(void);
-  void ToggleOnboardLed(void);
-  
-  void PublishMqttState(PubSubClient &mqttClient);
-  void SubscribeToMqttSetTopic(PubSubClient &mqttClient);
+    GenericSensor(void) { }
+    ~GenericSensor(void){ }
+    
+    virtual void PublishMqttState(PubSubClient &mqttClient) = 0;
+    virtual std::string *GenerateWebData(void) = 0;
 
-  void ProcessMqttRequest(char *topic, char* message);
-  void ProcessWebRequest(ESP8266WebServer *pWebServer);
-  
-  std::string *GenerateWebData(void);
-  void UpdateAllSensors(void);
-  
-  private:
-  std::queue<int> _pinToScanActuators; 
-  std::queue<int> _pinToScanSensors;
+    virtual void UpdateSensor(void) = 0;
+    
+    static std::list<GenericSensor *> FindSensors(int pin);
+    
+  protected:
+    sensorType_t _sensorType; 
 
-  int _onboardLedState;
-  
-  private:
-  std::map<int,std::list<GenericSensor *>> _sensors;
-  std::map<int,std::list<GenericActuator *>> _actuators;
+    std::string _sensorName;
+    std::string _stateTopic;  
+
+    private:
+    static std::list<GenericSensor *> FindDs18Sensors(int pin);
+    static std::list<GenericSensor *> FindDhtSensors(int pin);
 };
 
 
-extern PinAttribution allSensorsAndActuators;
+
+
+  
 #endif

@@ -28,7 +28,7 @@ SOFTWARE.
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PubSubClient.h>
-#include "LogManagement.h"
+
 
 #include "GenericSensor.h"
 
@@ -38,8 +38,8 @@ class DS18Sensor : public DallasTemperature, public GenericSensor
   
     DS18Sensor (uint8_t pin);
     ~DS18Sensor(void);
-    bool begin(void);
-    inline byte *GetDeviceAddress(void);
+    bool scan(void);
+    uint8_t * GetDeviceAddress(void);
     
     void PublishMqttState(PubSubClient &mqttClient);
     std::string *GenerateWebData(void);
@@ -50,9 +50,8 @@ class DS18Sensor : public DallasTemperature, public GenericSensor
     bool scanPinForDS18(void);
     
     OneWire *_pOneWire;
-    DallasTemperature *_pDallasTemp;
     int _pin;
-    byte _sensorAddress[8];
+    DeviceAddress _sensorAddress;
     float _minValidTemp;
     float _maxValidTemp;
     float _temperature;

@@ -22,46 +22,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#ifndef _CGE_PIN_ATTRIBUTION_H
-#define _CGE_PIN_ATTRIBUTION_H
+#ifndef _CGE_DHTSENSOR_H
+#define _CGE_DHTSENSOR_H
 
-#include <queue>
-#include <map>
-#include <list>
-
-#include "settings.h"
+#include <DHT.h>
+#include <PubSubClient.h>
 #include "GenericSensor.h"
-#include "GenericActuator.h"
 
-class PinAttribution 
+class DHTSensor : public DHT, public GenericSensor
 {
-
   public:
-  PinAttribution(void);
-  ~PinAttribution(void);
-  void begin(void);
-  void ToggleOnboardLed(void);
+  DHTSensor (uint8_t pin, uint8_t sensorType = DHT_AUTO, uint16_t maxIntervalRead = READ_INTERVAL_DONT_CARE);
+
+  bool begin(void);
   
   void PublishMqttState(PubSubClient &mqttClient);
-  void SubscribeToMqttSetTopic(PubSubClient &mqttClient);
-
-  void ProcessMqttRequest(char *topic, char* message);
-  void ProcessWebRequest(ESP8266WebServer *pWebServer);
-  
   std::string *GenerateWebData(void);
-  void UpdateAllSensors(void);
-  
-  private:
-  std::queue<int> _pinToScanActuators; 
-  std::queue<int> _pinToScanSensors;
 
-  int _onboardLedState;
+  void UpdateSensor(void);
   
   private:
-  std::map<int,std::list<GenericSensor *>> _sensors;
-  std::map<int,std::list<GenericActuator *>> _actuators;
+    float _minValidTemp;
+    float _maxValidTemp;
+    float _temperature;
+    float _minValidHumidity;
+    float _maxValidHumidity;
+    float _humidity; 
 };
 
-
-extern PinAttribution allSensorsAndActuators;
 #endif

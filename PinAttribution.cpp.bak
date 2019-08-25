@@ -27,7 +27,6 @@ SOFTWARE.
 #include <inttypes.h> /*pins_arduino.h does not have defines for uint8_t etc... */
 #include "pins_arduino.h"
 
-#include "settings.h" 
 #include <LogManagement.h>
 
 PinAttribution allSensorsAndActuators;
@@ -52,10 +51,7 @@ PinAttribution allSensorsAndActuators;
    _pinToScanSensors.push(D7);
    _pinToScanSensors.push(D8);
  
-  }
-  
-void PinAttribution::begin(void)
-{
+
     int pinToScan = 0;
 
     std::list<GenericSensor *> sensorRet;
@@ -197,16 +193,12 @@ void PinAttribution::ProcessWebRequest(ESP8266WebServer *pWebServer)
   std::map<int,std::list<GenericActuator *>>::iterator itPin;
   std::list<GenericActuator *> *pList;
   std::list<GenericActuator *>::iterator itActuator;
-  GenericActuator *pActuator;
   for(itPin = _actuators.begin(); itPin != _actuators.end(); itPin++)
   {
-    LOG_LN("actuator registered on pin")
     pList = &(itPin->second);
     for(itActuator = pList->begin();itActuator!= pList->end(); itActuator++)
     {
-       LOG_LN("calling web request processing")
-       pActuator=*itActuator;
-       pActuator->ProcessWebCommand(pWebServer);
+          (*itActuator)->ProcessWebCommand(pWebServer);
     }
   }
 }
