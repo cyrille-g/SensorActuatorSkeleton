@@ -27,6 +27,10 @@ SOFTWARE.
 
 #include "GenericActuator.h"
 
+/* #include "aircon.h" */
+
+#include "settings.h"
+#include <LogManagement.h>
 
 bool GenericActuator::SubscribeToMqttSetTopic(PubSubClient &mqttClient)
 {
@@ -50,14 +54,14 @@ std::list<GenericActuator *> GenericActuator::FindAircon(int pin)
   return ret;
 }
 */
+
 std::list<GenericActuator *> GenericActuator::FindActuators(int pin)
 {
   std::list<GenericActuator *> ret;
   
 /* call your actuator finders here. example:
   
-  ret.merge(FindAircon(pin);
+  ret.merge(FindAircon(pin));
 */
-
   return ret;
 }

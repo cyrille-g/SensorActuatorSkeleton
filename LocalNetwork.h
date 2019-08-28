@@ -41,46 +41,64 @@ class LocalNetwork {
   public:
   LocalNetwork();
   void begin(void);
-  ESP8266WebServer GetWebServer(void);
-  PubSubClient GetMqttClient(void);
 
   void SetOtaUpdating(void) { _otaUpdating = true;}
   void ResetOtaUpdating(void) {_otaUpdating = false;}
 
   void SetNtpEvent(NTPSyncEvent_t ntpEvent) { _ntpEvent = ntpEvent;  _ntpEventTriggered = true;}
    
-  void CheckWifi(void);
+  bool CheckWifi(void);
   void CheckOtaUpdate(void);
   void CheckAndProcessMqttEvents(void);
   void ProcessWebServerEvents(void);
   void ProcessNtpEvents(void);
 
   private:
-  ESP8266WiFiMulti _wifiMulti; 
+  ESP8266WiFiMulti *_pWifiMulti; 
   uint16_t _mqttWaitingCounter;
   ESP8266WebServer _webServer;
   ESP8266HTTPUpdateServer _httpUpdater; // web interface to remotely update the firmware
   WiFiClient   _espClient;
   PubSubClient _mqttClient;
 
+  std::string _setupReload;
+  std::string _frontendReload;
+  
+  unsigned long _webServerStartedAt;
+  bool _keepConfServer;
+
+  uint8_t _wifiSetupFailed;
+  unsigned long _lastFailedWifiAttemptAt;
+  
   bool _otaUpdating;
   bool _ntpEventTriggered;
   
   NTPSyncEvent_t _ntpEvent; // Last triggered event
   
   void WebServerSetup(void);
+  void WebServerRunning(void);
+  
   void MqttSetup(void);
   void TryReconnectMqtt(void);  
-  void WifiSetup(void);
+  
+  bool WifiSetup(void);
+  void ConfSoftApWebServer(void);
+  bool TryWifiConnect(void);
+  
   void OtaSetup(void);
   void NtpSetup(void);
   
-  void handleLog(void) ;
-  void handleReset (void);
-  void handleNotFound(void) ;
-  void handleCommmand(void);
-  void handleRoot(void);
+  void HandleLog(void) ;
+  void HandleReset (void);
+  void HandleNotFound(void) ;
+  void HandleCommmand(void);
+  
+  void HandleConfiguration(ESP8266WebServer &webServer);
+ 
+  void HandleWebInterface(ESP8266WebServer &webServer);
 
+  
+  void SendStandardWebInterface(ESP8266WebServer &webServer);
   void AirconCommandCallback(char* topic, byte* payload, unsigned int length) ;
 
 };

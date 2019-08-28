@@ -48,7 +48,7 @@ class PinAttribution
   void ProcessMqttRequest(char *topic, char* message);
   void ProcessWebRequest(ESP8266WebServer *pWebServer);
   
-  std::string *GenerateWebData(void);
+  void AppendWebData(std::string &str);
   void UpdateAllSensors(void);
   
   private:

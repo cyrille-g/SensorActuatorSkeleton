@@ -38,7 +38,7 @@ typedef enum
 
 class GenericActuator {
   public:
-    virtual std::string *GenerateWebData(void) = 0;
+    virtual void AppendWebData(std::string &str) = 0;
     virtual void ProcessWebCommand(ESP8266WebServer *pWebServer) = 0;
     virtual void PublishMqttState(PubSubClient &mqttClient) = 0;
     virtual bool ProcessMqttCommand(char* message) = 0;

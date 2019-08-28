@@ -42,7 +42,6 @@ DS18Sensor::DS18Sensor(uint8_t pin): _pin(pin)
 DS18Sensor::~DS18Sensor(void)
 {
   delete _pOneWire;
-  delete  _pOneWire;
 }
 
 byte *DS18Sensor::GetDeviceAddress(void)
@@ -52,25 +51,8 @@ byte *DS18Sensor::GetDeviceAddress(void)
 
 bool DS18Sensor::scan(void)
 {
-   LOG_LN("before dallas begin")
-   begin();
-   LOG_LN("dallas begin over, scanning")
-
-
-   if (getDS18Count() >0)
-   {
-    DeviceAddress localDeviceAddress;
-    for (int i = 0; i < getDeviceCount(); i++) {
-      
-    getAddress(localDeviceAddress, i);
-    if (validFamily(localDeviceAddress))  
-     memcpy(_sensorAddress, localDeviceAddress,8);
-     return true;
-    }
-   }
-  return false;     
-//     bool ret = scanPinForDS18();
-//  return ret;
+  begin();
+  return scanPinForDS18();
 }
 
 bool DS18Sensor::scanPinForDS18(void)
@@ -108,9 +90,8 @@ bool DS18Sensor::scanPinForDS18(void)
   }
  
   _sensorType = SENSOR_UNDEF;
-  _stateTopic ="PIN";
-  char buf[10];  
-  sprintf(buf,"%d",_pin);
+  char buf[15];  
+  sprintf(buf,"STATE/PIN%d",_pin);
   _stateTopic.append(buf);
 
   // the first ROM byte indicates which chip
@@ -140,6 +121,9 @@ bool DS18Sensor::scanPinForDS18(void)
       return ret;
       break;
   } 
+  
+   char *pName = &_stateTopic[6];
+   _sensorName.append(pName);
 
   memcpy(_sensorAddress,addr ,8);
   /* set resolution to 9 bits */
@@ -163,30 +147,25 @@ void DS18Sensor::PublishMqttState(PubSubClient &mqttClient)
   mqttClient.publish(_stateTopic.c_str(), sensorBuffer, true);
   free (sensorBuffer);
 }
-std::string *DS18Sensor::GenerateWebData(void)
+void DS18Sensor::AppendWebData(std::string &str)
 {
-  std::string *pWebData = new std::string("<TABLE><TR><TD>DS18 Sensor ");
   char localConvertBuffer[10];
-  /* add name */
-  pWebData->append(_sensorName);
-  pWebData->append("<BR> Mqtt state ");
-  pWebData->append(_stateTopic);
-  pWebData->append("<BR><BR>Temperature: <p style=\"color:");
-  /* add temperature */
-  itoa(_temperature,localConvertBuffer,10);
-  pWebData->append(localConvertBuffer);
+  str.append("<div class=SAparagraph>");
+  str.append(_sensorName);
+  str.append("<BR><BR>Mqtt state: ");
+  str.append(_stateTopic);
+  str.append("<BR><BR><span class="); 
   if ( _temperature == -51.0)
   {
-    pWebData->append("red\"> -- unavailable -- ");
+    str.append("redboldtext>  -- Temperature unavailable -- </span>");
   } else {
-    pWebData->append("green\"> ");
+   /* add temperature */
+    str.append("greenboldtext> Temperature: ");
     itoa(_temperature,localConvertBuffer,10);
-    pWebData->append(localConvertBuffer);
-    pWebData->append(" °C");
+    str.append(localConvertBuffer);
+    str.append(" &#176;C</span>");
   }
-
-  pWebData->append("</p></TD></TR></TABLE>");
-  return pWebData;
+  str.append("</div><BR>");
 }
 
 void DS18Sensor::UpdateSensor(void)

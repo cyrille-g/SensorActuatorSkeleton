@@ -51,7 +51,7 @@ class GenericSensor {
     ~GenericSensor(void){ }
     
     virtual void PublishMqttState(PubSubClient &mqttClient) = 0;
-    virtual std::string *GenerateWebData(void) = 0;
+    virtual void AppendWebData(std::string &str) = 0;
 
     virtual void UpdateSensor(void) = 0;
     

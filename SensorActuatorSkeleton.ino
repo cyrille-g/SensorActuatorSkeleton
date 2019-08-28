@@ -23,12 +23,19 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "LocalNetwork.h"
+#include "PinAttribution.h"
+#include "parameters.h"
 
-void setup(void) {
-
+void setup(void) 
+{
   // serial
   Serial.begin(115200);
+  parameters.begin();
+  network.begin();
 
+  //search sensors and actuators 
+  allSensorsAndActuators.begin();
+  
   //led off once setup is done
   digitalWrite(BUILTIN_LED,HIGH);
 
@@ -48,11 +55,13 @@ void loop() {
    */
 
   
-  network.CheckWifi();
-  network.CheckOtaUpdate();
+  if (network.CheckWifi())
+  {
+    network.CheckOtaUpdate();
+    network.CheckAndProcessMqttEvents();
+    network.ProcessNtpEvents();
+  }
 
-  network.CheckAndProcessMqttEvents();
   network.ProcessWebServerEvents();
-  network.ProcessNtpEvents();
   
 }

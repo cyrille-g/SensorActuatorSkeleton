@@ -42,7 +42,7 @@ class DS18Sensor : public DallasTemperature, public GenericSensor
     uint8_t * GetDeviceAddress(void);
     
     void PublishMqttState(PubSubClient &mqttClient);
-    std::string *GenerateWebData(void);
+    void AppendWebData(std::string &str);
     
     void UpdateSensor(void);
 

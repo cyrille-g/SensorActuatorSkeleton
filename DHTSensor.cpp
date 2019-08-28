@@ -104,39 +104,41 @@ void DHTSensor::PublishMqttState(PubSubClient &mqttClient)
   sensorBuffer= NULL;
 } 
 
-std::string *DHTSensor::GenerateWebData(void)
+void DHTSensor::AppendWebData(std::string &str)
 {
-  std::string *pWebData = new std::string("<TABLE><TR><TD>DHT Sensor ");
+  
+  
   char localConvertBuffer[20];
+  str.append("<div class=SAparagraph>");
   /* add name */
-  pWebData->append(_sensorName);
-  pWebData->append("<BR> Mqtt state ");
-  pWebData->append(_stateTopic);
-  pWebData->append("<BR><BR>Temperature: <p style=\"color:");
+  str.append(_sensorName);
+  str.append("<BR><BR> Mqtt state ");
+  str.append(_stateTopic);
+  str.append("<BR><BR>Temperature: <p style=\"color:");
 
   /* add temperature */
   if ( isnan(temperature))
   {
-    pWebData->append("red\"> -- unavailable -- ");
+    str.append("red\"> -- unavailable -- ");
   } else {
-    pWebData->append(":green\"> ");
-    sprintf(localConvertBuffer,"%f °C",temperature);
-    pWebData->append(localConvertBuffer);
+    str.append(":green\"> ");
+    sprintf(localConvertBuffer,"%f &#176;C",temperature);
+    str.append(localConvertBuffer);
   }
 
-  pWebData->append("</p>");
+  str.append("</p>");
 
-  pWebData->append("Humidity: <p style=\"color:");
+  str.append("Humidity: <p style=\"color:");
   /* add humidity and comfort values */
   if ( isnan(humidity))
   {
-    pWebData->append("red\"> -- unavailable -- ");
+    str.append("red\"> -- unavailable -- ");
   } else {
-    pWebData->append("green\"> ");
+    str.append("green\"> ");
    sprintf(localConvertBuffer,"%f %",humidity);
-    pWebData->append(localConvertBuffer);
+    str.append(localConvertBuffer);
   }
-  pWebData->append("</p>");
+  str.append("</p>");
 
   if ((!isnan(temperature)) && (!isnan(humidity)))
   {
@@ -144,53 +146,53 @@ std::string *DHTSensor::GenerateWebData(void)
     double dewPoint = computeDewPoint(temperature,humidity);
     ComfortState comfortState;
     float comfortRatio = getComfortRatio(comfortState,temperature,humidity);
-    pWebData->append(" Heat index: ");
+    str.append(" Heat index: ");
     itoa(heatIndex,localConvertBuffer,10);
-    pWebData->append(localConvertBuffer);
-    pWebData->append("<BR> Dew point: ");
+    str.append(localConvertBuffer);
+    str.append("<BR> Dew point: ");
     itoa(dewPoint,localConvertBuffer,10);
-    pWebData->append(localConvertBuffer);
-    pWebData->append("<BR> Comfort ratio: ");
+    str.append(localConvertBuffer);
+    str.append("<BR> Comfort ratio: ");
     itoa(comfortRatio,localConvertBuffer,10);
-    pWebData->append(localConvertBuffer);
+    str.append(localConvertBuffer);
   
-    pWebData->append("<BR> ");
+    str.append("<BR> ");
     switch(comfortState)
     {
        case Comfort_OK:
-         pWebData->append("Temperature and humidity ok");
+         str.append("Temperature and humidity ok");
        break;
        case Comfort_TooHot:
-        pWebData->append("Too hot");
+        str.append("Too hot");
        break;
        case Comfort_TooCold:
-        pWebData->append("Too cold");
+        str.append("Too cold");
        break;
        case Comfort_TooDry:
-        pWebData->append("Too dry");
+        str.append("Too dry");
        break;
        case Comfort_TooHumid:
-        pWebData->append("Too dry");
+        str.append("Too dry");
        break;
        case Comfort_HotAndHumid:
-        pWebData->append("Too hot and too humid");
+        str.append("Too hot and too humid");
        break;
        case Comfort_HotAndDry:
-        pWebData->append("Too hot and too dry");
+        str.append("Too hot and too dry");
        break;
        case Comfort_ColdAndHumid:
-        pWebData->append("Too cold and too humid");
+        str.append("Too cold and too humid");
        break;
        case Comfort_ColdAndDry:
-        pWebData->append("Too cold and too dry");
+        str.append("Too cold and too dry");
        break;
        default:
-        pWebData->append("unkonwn (something is broken !)");
+        str.append("unknown (something is broken !)");
        break;
     }
   }
-  pWebData->append("<BR><BR></TD></TR></TABLE>");
-  return pWebData;
+  str.append("<BR><BR></div>");
+
 } 
 
 

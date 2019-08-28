@@ -36,7 +36,7 @@ class DHTSensor : public DHTesp, public GenericSensor
   bool begin(uint8_t pin);
   
   void PublishMqttState(PubSubClient &mqttClient);
-  std::string *GenerateWebData(void);
+  void AppendWebData(std::string &str);
 
   void UpdateSensor(void);
 };

@@ -29,11 +29,10 @@ SOFTWARE.
 /* remove this line to be able to compile. Please do it once 
  *  mac address is set */
 
-//#error configure settings.h before compiling, then remove this line
-
+#error configure settings.h before compiling, then remove this line
 
 /**************************** device nae, used for OTA, MQTT, mDNS,html ***********/
-#define DEVICENAME "aircon" 
+#define DEVICENAME "defaultDeviceNameNoSpace" 
 
 /**************************** OTA **************************************************/
 #define OTAPASSWORD "otapwd" //the password you will need to enter to upload remotely via the ArduinoIDE
@@ -43,9 +42,9 @@ SOFTWARE.
 #define MQTT_MAX_PACKET_SIZE 512
 
 /******************************** DEBUG ********************************************/
-#define DEBUG // If defined debug output is activated
-#define WEB_DEBUG // If defined debug output on the webserver is activated
-
+/* comment these to disable debug. Note: files that do not include this header will not output logs */
+#define NEED_LOG
+#define NEED_QUEUE_LOG
 /******************************** HARDWARE *******************************************/
 
 /* PWM maximum value is defined as PWMRANGE on esp8266*/
@@ -59,11 +58,20 @@ SOFTWARE.
 #define WIFISSID2 "0"
 #define WIFIPWD2 "0"
 
+#define WIFI_CONFIGURATION_SSID "confssid"
+#define WIFI_CONFIGURATION_PWD "localconfssid"
+#define WIFI_CONNECTION_TRIES_BEFORE_ERROR 30
+#define WIFI_CONNECTION_TIMER_BETWEEN_TRIES_MS 60000
+#define WIFI_FAILED_THRESHOLD 3
+
 #define MQTT_SERVER_IP "0.1.2.3"
 #define MQTT_USERNAME  "toto"
 #define MQTT_PWD "pwd123"
 #define MQTT_PORT 0
 #define MQTT_WAIT_RECONNECT_COUNTER 50000
+
+
+
 
 /************* MQTT TOPICS (change these topics as you wish)  **********************/
 #define MQTT_PREFIX "aircon"
@@ -73,7 +81,7 @@ SOFTWARE.
 // the media access control (ethernet hardware) address for the shield:
 #define MAC_ADDRESS { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF }
 
-/**************************************** TIME **************************************/
+/**************************************** TIME **********************************/
 #define NTP_SERVER "pool.ntp.org"
 #define NTP_SERVER_PORT 123
 
@@ -87,8 +95,15 @@ SOFTWARE.
 #define DEFAULT_SWING_V 0
 #define DEFAULT_MODE DAIKIN_COOL
 
-/********************************** WEBSERVER ****************************************/
+/********************************** WEBSERVERS **********************************/
 #define WEBSERVER_PORT 80
+#define CLOSE_SETUP_WEBSERVER_AFTER_MS 300000 /*5mn */
+
+/********************************** EEPROM **************************************/
+#define EEPROM_MAGIC_NUMBER_ADDR 0x0F
+#define EEPROM_MAGIC_NUMBER_VALUE 0xDEADBEEF
+#define EEPROM_MAGIC_NUMBER_SIZE 4
+#define EEPROM_MIN_TIME_BETWEEN_SAVE_MS 30000 /* 30 seconds */
 
 
 

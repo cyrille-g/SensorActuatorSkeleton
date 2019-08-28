@@ -28,6 +28,7 @@
 #include "PinAttribution.h"
 #include "LocalNetwork.h"
 
+#include "Parameters.h"
 #include "settings.h"
 #include <LogManagement.h>
 
@@ -38,35 +39,149 @@ LocalNetwork::LocalNetwork(void)
 {
   //wifi not starting fix
   WiFi.mode(WIFI_OFF);
-
-}
-
-void LocalNetwork::begin(void)
-{
-  WifiSetup();
+  _keepConfServer = false;
+  _webServerStartedAt = 0;
+  _lastFailedWifiAttemptAt = 0;
+  _pWifiMulti = NULL;
   NtpSetup();
-  WebServerSetup();
   MqttSetup();
   OtaSetup();
 }
 
-void LocalNetwork::WebServerSetup(void)
+void LocalNetwork::begin(void)
+{
+  TryWifiConnect();
+    
+  WebServerSetup();
+  _webServerStartedAt = millis();
+    
+  NTP.begin(parameters.NtpIp().c_str(), 1, true);
+  ArduinoOTA.begin(); 
+}
+
+
+void LocalNetwork::ConfSoftApWebServer(void)
+{
+  WiFi.mode(WIFI_OFF);
+  delay(50);
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(parameters.ConfigurationSsid().c_str(),parameters.ConfigurationPwd().c_str());
+  delay(100);
+  
+  IPAddress Ip(192, 168, 150, 1);
+  IPAddress NMask(255, 255, 255, 0);
+  WiFi.softAPConfig(Ip, Ip, NMask);
+
+  IPAddress myIP = WiFi.softAPIP();
+
+  LOG("AP IP address: ");
+  LOG_LN(myIP);
+}
+
+void LocalNetwork::WebServerRunning(void)
 {
   _webServer.on("/", [this]() {
-    handleRoot();
+    if (_otaUpdating)
+      return;
+    HandleWebInterface(_webServer);
+    _frontendReload="<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
+    _frontendReload.append(_webServer.uri().c_str());
+    _frontendReload.append("\"></head></html>");
+
   });
   _webServer.on("/command", [this]() {
-    handleCommmand();
+    if (_otaUpdating)
+      return;
+    HandleCommmand();
+    _webServer.send(200, "text/html", _frontendReload.c_str());
   });
   _webServer.on("/log", [this]() {
-    handleLog();
+    if (_otaUpdating)
+      return;
+    HandleLog();
   });
+
+  _webServer.on("/reset", [this]() {
+    if (_otaUpdating)
+      return;
+    HandleReset();
+  });
+
   _webServer.onNotFound([this]() {
-    handleNotFound();
+    if (_otaUpdating)
+      return;
+    HandleNotFound();
   });
 
   _httpUpdater.setup(&_webServer);
-  _webServer.begin(WEBSERVER_PORT);
+  _webServer.begin(parameters.WebserverPort());
+
+}
+
+void LocalNetwork::WebServerSetup(void)
+{
+  _webServer.on("/setup", [this]() {
+    _setupReload="<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
+    _setupReload.append(_webServer.uri().c_str());
+    _setupReload.append("\"></head></html>");
+
+    _keepConfServer = true;
+      if (_otaUpdating)
+    return;
+    parameters.HandleConfiguration(_webServer);
+  });
+
+  _webServer.on("/confWifi", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfWifi(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  _webServer.on("/confMqtt", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfMqtt(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  _webServer.on("/confNtp", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfNtp(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  _webServer.on("/confDevicename", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfDeviceName(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  _webServer.on("/confConf", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfConf(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  _webServer.on("/confOta", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfOta(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+
+  _webServer.on("/saveToFlash", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleSaveToFlash(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
+  });
+
+  WebServerRunning();
 }
 
 void LocalNetwork::MqttSetup(void)
@@ -74,7 +189,7 @@ void LocalNetwork::MqttSetup(void)
   _mqttClient.setClient(_espClient);
   LOG_LN("Wifi connected, reaching for MQTT server")
   _mqttWaitingCounter = MQTT_WAIT_RECONNECT_COUNTER;
-  _mqttClient.setServer(MQTT_SERVER_IP, (uint16_t)MQTT_PORT);
+  _mqttClient.setServer(parameters.MqttIp().c_str(), (uint16_t)parameters.MqttPort());
   _mqttClient.setCallback([this](char* topic, byte * payload, unsigned int length) {
     AirconCommandCallback(topic, payload, length);
   });
@@ -83,11 +198,11 @@ void LocalNetwork::MqttSetup(void)
 void LocalNetwork::OtaSetup(void)
 {
   _otaUpdating = false;
-  ArduinoOTA.setPort(OTAPORT);
-  ArduinoOTA.setHostname(DEVICENAME);
+  ArduinoOTA.setPort(parameters.OtaPort());
+  ArduinoOTA.setHostname(parameters.DeviceName().c_str());
 
   // authentication by default
-  ArduinoOTA.setPassword(OTAPASSWORD);
+  ArduinoOTA.setPassword(parameters.OtaPwd().c_str());
 
   ArduinoOTA.onStart([this]() {
     LOG_LN("Starting OTA")
@@ -120,19 +235,14 @@ void LocalNetwork::OtaSetup(void)
 
             });
 
-  ArduinoOTA.begin();
 }
 
 void LocalNetwork::NtpSetup(void)
 {
-  LOG("NTP architecture: ")
-  LOG_LN(NETWORK_TYPE)
-
   _ntpEventTriggered = false;
   // NTP and time setup.
   // this one sets the NTP server as gConftimeServer with gmt+1
   // and summer/winter mechanic (true)
-  NTP.begin(NTP_SERVER, 1, true);
   // set the interval to 20s at first. On success, change that value
   NTP.setInterval(20);
 
@@ -141,45 +251,73 @@ void LocalNetwork::NtpSetup(void)
   });
 }
 
-void LocalNetwork::WifiSetup(void) {
+bool LocalNetwork::TryWifiConnect(void) 
+{
+  if (_otaUpdating)
+    return false;
+    
+  /* reconnect timer */
+  if ((_lastFailedWifiAttemptAt!=0) && (_lastFailedWifiAttemptAt + WIFI_CONNECTION_TIMER_BETWEEN_TRIES_MS) > millis())
+    return false;
 
-  _wifiMulti.addAP(WIFISSID1, WIFIPWD1);
-  _wifiMulti.addAP(WIFISSID2 , WIFIPWD2);
+  WiFi.mode(WIFI_OFF);
+  delay(50);  
+  LOG_LN("Attempting wifi connection")
+  int i = 0;
   // We start by connecting to a WiFi network
-  while (_wifiMulti.run() != WL_CONNECTED)
+  WiFi.mode(WIFI_STA);
+  _pWifiMulti = new ESP8266WiFiMulti;
+  _pWifiMulti->addAP(parameters.MainSsid().c_str(), parameters.MainSsidPwd().c_str());
+  _pWifiMulti->addAP(parameters.BackupSsid().c_str(), parameters.BackupSsidPwd().c_str());
+
+  for(i = 0; (i<WIFI_CONNECTION_TRIES_BEFORE_ERROR) && (_pWifiMulti->run() != WL_CONNECTED);i++)
   {
     // Wait for the Wi-Fi to connect: scan for Wi-Fi networks, and connect to the strongest of the networks above
     delay(50);
   }
 
-  LOG("Connected to ")
-  LOG(WiFi.SSID().c_str())              // Tell us what network we're connected to
-  LOG(" IP address:\t")
-  LOG_LN(WiFi.localIP())
+  if (i<WIFI_CONNECTION_TRIES_BEFORE_ERROR)
+  {
+    LOG("Connected to ")
+    LOG(WiFi.SSID().c_str())              // Tell us what network we're connected to
+    LOG(" IP address: ")
+    LOG_LN(WiFi.localIP())
+  
+  
+    if (!MDNS.begin(parameters.DeviceName().c_str())) {   // Start the mDNS responder for DEVICENAME.local
+      LOG_LN("Error setting up MDNS responder")
+    }
 
+    LOG("Device answers to ")
+    LOG(parameters.DeviceName().c_str())
+    LOG_LN(".local")
 
-  if (!MDNS.begin(DEVICENAME)) {   // Start the mDNS responder for DEVICENAME.local
-    LOG_LN("Error setting up MDNS responder")
+    return true;
+  } else {
+
+    delete _pWifiMulti;
+    _lastFailedWifiAttemptAt = millis();
+    _wifiSetupFailed++;
+    LOG_LN("Failed to connect to wifi network, try again later, use softAP for now");
+    ConfSoftApWebServer();
+    return false;
   }
-
-  LOG("Device answers to ")
-  LOG(DEVICENAME)
-  LOG_LN(".local")
-
 }
 
-
-void LocalNetwork::CheckWifi(void)
+bool LocalNetwork::CheckWifi(void)
 {
+  bool ret = false;
   if (WiFi.status() != WL_CONNECTED)
   {
-    delay(5);
-    LOG_LN("WIFI Disconnected. Attempting reconnection")
-    WifiSetup();
-    //led off once setup is done
-    digitalWrite(BUILTIN_LED, HIGH);
-    return;
+    if (TryWifiConnect()) 
+    { /* we went from "unconnected" to "connected" */
+      /* stop the webserver with the configuration, unless told not to */
+      _webServer.close();
+      /* restart the webserver, without the configuration tool */
+      WebServerRunning();
+    }
   }
+  return ret;
 }
 
 void LocalNetwork::CheckOtaUpdate(void)
@@ -255,7 +393,7 @@ void LocalNetwork::TryReconnectMqtt(void)
 {
   LOG("Attempting MQTT connection...")
   // Attempt to connect
-  if (_mqttClient.connect(DEVICENAME, MQTT_USERNAME, MQTT_PWD))
+  if (_mqttClient.connect(parameters.DeviceName().c_str(), parameters.MqttUsername().c_str(),parameters.MqttPwd().c_str()))
   {
     LOG_LN(" connected")
 
@@ -293,7 +431,7 @@ void LocalNetwork::AirconCommandCallback(char* topic, byte* payload, unsigned in
     return;
   }
 
-  if (strcmp(token, MQTT_PREFIX) != 0) {
+  if (strcmp(token, parameters.MqttPrefix().c_str()) != 0) {
     //no; leave
     LOG_LN("wrong MQTT prefix")
     return;
@@ -305,46 +443,50 @@ void LocalNetwork::AirconCommandCallback(char* topic, byte* payload, unsigned in
 
 
 
+void LocalNetwork::SendStandardWebInterface(ESP8266WebServer &webServer)
+{
+  /* Send the command to read sensors */
+  allSensorsAndActuators.UpdateAllSensors();
+
+  string resp("<HTML><head><title>");
+  resp.append(parameters.DeviceName().c_str());
+  resp.append(" frontend </title>");
+  Parameters::AppendCss(resp);
+  resp.append("<div class=SAparagraph><H1><center>");
+  resp.append(parameters.DeviceName().c_str());
+  resp.append(" frontend</H1></center></div><BR><BR>");
+
+  char localConvertBuffer[10] = {0};
+  resp.append("<table>");
+  allSensorsAndActuators.AppendWebData(resp);
+  resp.append("</table></body></html>");
+  webServer.send(200, "text/html", resp.c_str());
+}
+
+
 /* -------------------------------- WEBSERVER HANDLERS ------------------------*/
 
-void LocalNetwork::handleRoot(void)
+void LocalNetwork::HandleWebInterface(ESP8266WebServer &webServer)
 {
   if (_otaUpdating)
     return;
 
-  /* Send the command to read sensors */
-  allSensorsAndActuators.UpdateAllSensors();
-
-  char localConvertBuffer[10] = {0};
-  string resp("<head><title>");
-  resp.append(DEVICENAME);
-  resp.append("</title></head><body><H1>");
-  resp.append(DEVICENAME);
-  resp.append("</H1/<BR><BR>");
-
-  std::string *pWebData = allSensorsAndActuators.GenerateWebData();
-  resp.append(*pWebData);
-  delete pWebData;
-
-  resp.append("</body></html>");
-  _webServer.send(200, "text/html", resp.c_str());
+  SendStandardWebInterface(webServer);
 }
 
-void LocalNetwork::handleCommmand(void)
+void LocalNetwork::HandleCommmand(void)
 {
-
   allSensorsAndActuators.ProcessWebRequest(&_webServer);
-  handleRoot();
 }
 
-void LocalNetwork::handleNotFound(void)
+void LocalNetwork::HandleNotFound(void)
 {
   if (_otaUpdating)
     return;
   _webServer.send(404, "text/plain", "404 File Not Found");
 }
 
-void LocalNetwork::handleReset(void)
+void LocalNetwork::HandleReset(void)
 {
   if (_otaUpdating)
     return;
@@ -354,17 +496,16 @@ void LocalNetwork::handleReset(void)
   ESP.reset();
 }
 
-void LocalNetwork::handleLog(void)
+void LocalNetwork::HandleLog(void)
 {
   if (_otaUpdating)
     return;
 
   string resp("");
-
   resp.append("<html><head><title>");
-  resp.append(DEVICENAME);
+  resp.append(parameters.DeviceName().c_str());
   resp.append("</title></head><body><h1>");
-  resp.append(DEVICENAME);
+  resp.append(parameters.DeviceName().c_str());
   resp.append(" logs</h1>") ;
 #ifdef NEED_QUEUE_LOG
   resp.append(Logger.GetAllLogsWithBrSeparator());

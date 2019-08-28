@@ -37,21 +37,14 @@ PinAttribution allSensorsAndActuators;
   {
     _onboardLedState == LOW;
     
-   // _pinToScanActuators.push(D2); /*IR led is on D2 */
+//   _pinToScanActuators.push(D2); /*IR led is on D2 */
    
    /* onboard led ON while starting */
    pinMode(BUILTIN_LED, OUTPUT);
    digitalWrite(BUILTIN_LED,LOW);
    
-   _pinToScanSensors.push(D1);
-   _pinToScanSensors.push(D2);
-   _pinToScanSensors.push(D3);
+//   _pinToScanSensors.push(D6); /* DS18 is on D6 */
     /*_pinToScanSensors.push(D4); D4 = BUILTIN_LED */
-   _pinToScanSensors.push(D5);
-   _pinToScanSensors.push(D6);
-   _pinToScanSensors.push(D7);
-   _pinToScanSensors.push(D8);
- 
   }
   
 void PinAttribution::begin(void)
@@ -228,12 +221,9 @@ void PinAttribution::UpdateAllSensors(void)
 }
 
 
-std::string *PinAttribution::GenerateWebData(void)
+void PinAttribution::AppendWebData(std::string &str)
 {
-  std::string *pRet = new std::string("");
-
-  std::string *pWebData = NULL;
-  
+  str.append("<TR>");
   std::map<int,std::list<GenericSensor *>>::iterator itPin;
   std::list<GenericSensor *> *pList;
   std::list<GenericSensor *>::iterator itSensor;
@@ -242,26 +232,27 @@ std::string *PinAttribution::GenerateWebData(void)
     pList = &(itPin->second);
     for(itSensor = pList->begin();itSensor!= pList->end(); itSensor++)
     {
-          pWebData = (*itSensor)->GenerateWebData();
-          pRet->append(*pWebData);
-          delete pWebData;
+      str.append("<TD>");
+      (*itSensor)->AppendWebData(str);
+      str.append("</TD>");
     }
   }
-
+  str.append("</TR>");
   std::map<int,std::list<GenericActuator *>>::iterator itActuatorPin;
   std::list<GenericActuator *> *pActuatorList;
   std::list<GenericActuator *>::iterator itActuator;
+  str.append("<TR>");
   for(itActuatorPin = _actuators.begin(); itActuatorPin != _actuators.end(); itActuatorPin++)
   {
     pActuatorList = &(itActuatorPin->second);
     for(itActuator = pActuatorList->begin();itActuator!= pActuatorList->end(); itActuator++)
     {
-          pWebData = (*itActuator)->GenerateWebData();
-          pRet->append(*pWebData);
-          delete pWebData;
+      str.append("<TD>");
+      (*itActuator)->AppendWebData(str);
+      str.append("</TD>");
     }
   }
-  return pRet;
+  str.append("</TR>");
 }
 
 void PinAttribution::ToggleOnboardLed(void)

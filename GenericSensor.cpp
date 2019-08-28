@@ -27,6 +27,8 @@ SOFTWARE.
 #include "settings.h" 
 #include "DHTSensor.h"
 #include "DS18Sensor.h"
+
+#include "settings.h"
 #include <LogManagement.h>
 
 std::list<GenericSensor *> GenericSensor::FindSensors(int pin)
@@ -67,8 +69,8 @@ std::list<GenericSensor *> GenericSensor::FindDs18Sensors(int pin)
 {
   std::list<GenericSensor *> ret;
   DS18Sensor *pPotentialSensor = new DS18Sensor(pin);
-   LOG_LN("sensor created, use scan")
-   bool bRet = pPotentialSensor->scan();
+
+  bool bRet = pPotentialSensor->scan();
   if (!bRet)
   {
     delete pPotentialSensor;
