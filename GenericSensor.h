@@ -55,7 +55,7 @@ class GenericSensor {
 
     virtual void UpdateSensor(void) = 0;
     
-    static std::list<GenericSensor *> FindSensors(int pin);
+    static std::list<GenericSensor *> FindSensors(std::pair<uint8_t,uint8_t> *pPinDefinition);
     
   protected:
     sensorType_t _sensorType; 

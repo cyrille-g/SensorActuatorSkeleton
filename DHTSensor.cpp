@@ -34,13 +34,6 @@ DHTSensor::DHTSensor (void)
 
 bool DHTSensor::begin(uint8_t pin)
 {
-//  DHTesp::setup(pin,AUTO_DETECT);
-if (pin != D5)
-{
-  return false;
-}
-else
-{
  DHTesp::setup(pin,DHT22);
 
   _stateTopic="STATE/PIN";
@@ -72,8 +65,6 @@ else
    _sensorName.append(pName);
   return true;
 }
-}
-
 
 void DHTSensor::PublishMqttState(PubSubClient &mqttClient)
 {
@@ -114,27 +105,27 @@ void DHTSensor::AppendWebData(std::string &str)
   str.append(_sensorName);
   str.append("<BR><BR> Mqtt state ");
   str.append(_stateTopic);
-  str.append("<BR><BR>Temperature: <p style=\"color:");
+  str.append("<BR><p style=\"color:");
 
   /* add temperature */
   if ( isnan(temperature))
   {
-    str.append("red\"> -- unavailable -- ");
+    str.append("red\"> --Temperature unavailable -- ");
   } else {
-    str.append(":green\"> ");
+    str.append(":green\"> Temperature ");
     sprintf(localConvertBuffer,"%f &#176;C",temperature);
     str.append(localConvertBuffer);
   }
 
   str.append("</p>");
 
-  str.append("Humidity: <p style=\"color:");
+  str.append("<p style=\"color:");
   /* add humidity and comfort values */
   if ( isnan(humidity))
   {
-    str.append("red\"> -- unavailable -- ");
+    str.append("red\"> -- Humidity unavailable -- ");
   } else {
-    str.append("green\"> ");
+    str.append("green\"> Humidity ");
    sprintf(localConvertBuffer,"%f %",humidity);
     str.append(localConvertBuffer);
   }
@@ -191,7 +182,7 @@ void DHTSensor::AppendWebData(std::string &str)
        break;
     }
   }
-  str.append("<BR><BR></div>");
+  str.append("</div>");
 
 } 
 

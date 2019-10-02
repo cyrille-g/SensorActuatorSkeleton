@@ -27,7 +27,7 @@ SOFTWARE.
 
 #include "GenericActuator.h"
 
-/* #include "aircon.h" */
+#include "aircon.h" 
 
 #include "settings.h"
 #include <LogManagement.h>
@@ -42,26 +42,18 @@ bool GenericActuator::SubscribeToMqttSetTopic(PubSubClient &mqttClient)
   }
 }
 
-/* define your actuator finders here. example:
-std::list<GenericActuator *> GenericActuator::FindAircon(int pin)
+std::list<GenericActuator *> GenericActuator::FindActuators(std::pair<uint8_t,uint8_t> *pPinDefinition)
 {
   std::list<GenericActuator *> ret;
-  if (pin == D2)
-  {
-    DaikinAirConditioning *pAircon = new DaikinAirConditioning(D2);
-    ret.push_front((GenericActuator *)pAircon);
-  }
-  return ret;
-}
-*/
 
-std::list<GenericActuator *> GenericActuator::FindActuators(int pin)
-{
-  std::list<GenericActuator *> ret;
+  if (pPinDefinition == NULL)
+    return ret;
+
+  if (pPinDefinition->second == ACTUATOR_DAIKIN_AIRCON_ID)
+  {
+     DaikinAirConditioning *pAircon = new DaikinAirConditioning(pPinDefinition->first);
+     ret.push_front((GenericActuator *)pAircon);
+  }
   
-/* call your actuator finders here. example:
-  
-  ret.merge(FindAircon(pin));
-*/
   return ret;
 }

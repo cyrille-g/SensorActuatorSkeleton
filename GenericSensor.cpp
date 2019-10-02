@@ -30,22 +30,32 @@ SOFTWARE.
 
 #include "settings.h"
 #include <LogManagement.h>
+#include "PinAttribution.h"
 
-std::list<GenericSensor *> GenericSensor::FindSensors(int pin)
+std::list<GenericSensor *> GenericSensor::FindSensors(std::pair<uint8_t,uint8_t> *pPinDefinition)
 {
   std::list<GenericSensor *> ret ;
-  LOG("Start scanning pin ")
-  LOG_LN(pin)
-  LOG_LN("Looking for DHT sensor")
- 
-  ret = FindDhtSensors(pin);
-  if (ret.empty())
+  if (pPinDefinition == NULL)
   {
-    LOG_LN("Found no DHT sensor, scanning for DS18")
-    ret.merge(FindDs18Sensors(pin));
-  } else {
-    LOG_LN ("Found one")
+    LOG_LN("pPinDefinition parameter null")
+    return ret;
   }
+  
+  LOG("Start scanning pin D")
+  LOG_LN(PinAttribution::DPinToPin(pPinDefinition->first))
+  
+  if (pPinDefinition->second == SENSOR_DHT22_ID)
+  {
+    LOG_LN("Looking for DHT sensor")
+    ret = FindDhtSensors(pPinDefinition->first);
+  } 
+  else if (pPinDefinition->second == SENSOR_DS18_ID)
+  {
+    ret = FindDs18Sensors(pPinDefinition->first);
+  } else {
+    LOG_LN ("No known sensor type on that pin")
+  }
+  
   return ret;
 }
 
@@ -57,8 +67,10 @@ std::list<GenericSensor *> GenericSensor::FindDhtSensors(int pin)
   
   if (!pPotentialSensor->begin(pin))
   {
+    LOG_LN("No DHT sensor found on that pin")
     delete pPotentialSensor;
   } else {
+    LOG_LN("Found sensor")
     ret.push_front((GenericSensor *)pPotentialSensor);
   }
   return ret;
@@ -73,8 +85,10 @@ std::list<GenericSensor *> GenericSensor::FindDs18Sensors(int pin)
   bool bRet = pPotentialSensor->scan();
   if (!bRet)
   {
+    LOG_LN("No DS18 sensor found on that pin")
     delete pPotentialSensor;
   } else {  
+    LOG_LN("Found sensor")
     ret.push_front((GenericSensor *)pPotentialSensor);
   }
   return ret;

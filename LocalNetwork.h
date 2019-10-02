@@ -72,6 +72,7 @@ class LocalNetwork {
   
   bool _otaUpdating;
   bool _ntpEventTriggered;
+  bool _inSetup;
   
   NTPSyncEvent_t _ntpEvent; // Last triggered event
   

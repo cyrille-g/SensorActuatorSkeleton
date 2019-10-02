@@ -34,7 +34,7 @@ void setup(void)
   network.begin();
 
   //search sensors and actuators 
-  allSensorsAndActuators.begin();
+  allocatedPins.begin();
   
   //led off once setup is done
   digitalWrite(BUILTIN_LED,HIGH);

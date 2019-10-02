@@ -28,10 +28,13 @@ SOFTWARE.
 #include <queue>
 #include <map>
 #include <list>
+#include <string>
 
 #include "settings.h"
 #include "GenericSensor.h"
 #include "GenericActuator.h"
+#include <ESP8266WebServer.h>
+
 
 class PinAttribution 
 {
@@ -47,21 +50,37 @@ class PinAttribution
 
   void ProcessMqttRequest(char *topic, char* message);
   void ProcessWebRequest(ESP8266WebServer *pWebServer);
-  
+
+  void HandlePinsConfiguration(ESP8266WebServer &webServer);
   void AppendWebData(std::string &str);
+  void AppendConfigureData(std::string &str);
+  
   void UpdateAllSensors(void);
+
+  static uint8_t PinToDPin(uint8_t pin);
+  static uint8_t DPinToPin(uint8_t dPin);
   
   private:
-  std::queue<int> _pinToScanActuators; 
-  std::queue<int> _pinToScanSensors;
+  char _localConvertBuffer[10];
+
+  std::vector<char *> _supportedActuators;
+  std::vector<char *> _supportedSensors;
+  
+  std::queue<std::pair<uint8_t,uint8_t>*> _pinToScanActuators; 
+  std::queue<std::pair<uint8_t,uint8_t>*> _pinToScanSensors;
 
   int _onboardLedState;
   
-  private:
   std::map<int,std::list<GenericSensor *>> _sensors;
   std::map<int,std::list<GenericActuator *>> _actuators;
+
+
+  void AppendSensorSelect(std::string &str, std::string selectName, int pin);
+  void AppendActuatorSelect(std::string &str, std::string selectName, int pin);
+
+
 };
 
 
-extern PinAttribution allSensorsAndActuators;
+extern PinAttribution allocatedPins;
 #endif

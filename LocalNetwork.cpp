@@ -42,6 +42,7 @@ LocalNetwork::LocalNetwork(void)
   _keepConfServer = false;
   _webServerStartedAt = 0;
   _lastFailedWifiAttemptAt = 0;
+  _inSetup = false;
   _pWifiMulti = NULL;
   NtpSetup();
   MqttSetup();
@@ -51,12 +52,12 @@ LocalNetwork::LocalNetwork(void)
 void LocalNetwork::begin(void)
 {
   TryWifiConnect();
-    
+
   WebServerSetup();
   _webServerStartedAt = millis();
-    
+
   NTP.begin(parameters.NtpIp().c_str(), 1, true);
-  ArduinoOTA.begin(); 
+  ArduinoOTA.begin();
 }
 
 
@@ -65,9 +66,9 @@ void LocalNetwork::ConfSoftApWebServer(void)
   WiFi.mode(WIFI_OFF);
   delay(50);
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(parameters.ConfigurationSsid().c_str(),parameters.ConfigurationPwd().c_str());
+  WiFi.softAP(parameters.ConfigurationSsid().c_str(), parameters.ConfigurationPwd().c_str());
   delay(100);
-  
+
   IPAddress Ip(192, 168, 150, 1);
   IPAddress NMask(255, 255, 255, 0);
   WiFi.softAPConfig(Ip, Ip, NMask);
@@ -84,7 +85,7 @@ void LocalNetwork::WebServerRunning(void)
     if (_otaUpdating)
       return;
     HandleWebInterface(_webServer);
-    _frontendReload="<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
+    _frontendReload = "<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
     _frontendReload.append(_webServer.uri().c_str());
     _frontendReload.append("\"></head></html>");
 
@@ -121,14 +122,32 @@ void LocalNetwork::WebServerRunning(void)
 void LocalNetwork::WebServerSetup(void)
 {
   _webServer.on("/setup", [this]() {
-    _setupReload="<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
+    _setupReload = "<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
     _setupReload.append(_webServer.uri().c_str());
     _setupReload.append("\"></head></html>");
-
+    _inSetup = true;
     _keepConfServer = true;
-      if (_otaUpdating)
-    return;
+    if (_otaUpdating)
+      return;
     parameters.HandleConfiguration(_webServer);
+  });
+
+  _webServer.on("/pins", [this]() {
+    _inSetup = true;
+    _keepConfServer = true;
+    _setupReload = "<html><head><meta http-equiv=\"refresh\" content=\"1;URL=";
+    _setupReload.append(_webServer.uri().c_str());
+    _setupReload.append("\"></head></html>");
+    if (_otaUpdating)
+      return;
+    allocatedPins.HandlePinsConfiguration(_webServer);
+  });
+
+  _webServer.on("/confPins", [this]() {
+    if (_otaUpdating)
+      return;
+    parameters.HandleConfPins(_webServer);
+    _webServer.send(200, "text/html", _setupReload.c_str());
   });
 
   _webServer.on("/confWifi", [this]() {
@@ -166,19 +185,12 @@ void LocalNetwork::WebServerSetup(void)
     _webServer.send(200, "text/html", _setupReload.c_str());
   });
 
-  _webServer.on("/confOta", [this]() {
-    if (_otaUpdating)
-      return;
-    parameters.HandleConfOta(_webServer);
-    _webServer.send(200, "text/html", _setupReload.c_str());
-  });
-
-
   _webServer.on("/saveToFlash", [this]() {
     if (_otaUpdating)
       return;
     parameters.HandleSaveToFlash(_webServer);
     _webServer.send(200, "text/html", _setupReload.c_str());
+    _inSetup = false;
   });
 
   WebServerRunning();
@@ -251,57 +263,61 @@ void LocalNetwork::NtpSetup(void)
   });
 }
 
-bool LocalNetwork::TryWifiConnect(void) 
+bool LocalNetwork::TryWifiConnect(void)
 {
+  if (_inSetup)
+    return false;
+
   if (_otaUpdating)
     return false;
-    
+
   /* reconnect timer */
-  if ((_lastFailedWifiAttemptAt!=0) && (_lastFailedWifiAttemptAt + WIFI_CONNECTION_TIMER_BETWEEN_TRIES_MS) > millis())
+  if ((_lastFailedWifiAttemptAt != 0) && (_lastFailedWifiAttemptAt + WIFI_CONNECTION_TIMER_BETWEEN_TRIES_MS) > millis())
     return false;
 
   WiFi.mode(WIFI_OFF);
-  delay(50);  
+  delay(200);
   LOG_LN("Attempting wifi connection")
   int i = 0;
   // We start by connecting to a WiFi network
   WiFi.mode(WIFI_STA);
+  delay(100);
   _pWifiMulti = new ESP8266WiFiMulti;
   _pWifiMulti->addAP(parameters.MainSsid().c_str(), parameters.MainSsidPwd().c_str());
   _pWifiMulti->addAP(parameters.BackupSsid().c_str(), parameters.BackupSsidPwd().c_str());
 
-  for(i = 0; (i<WIFI_CONNECTION_TRIES_BEFORE_ERROR) && (_pWifiMulti->run() != WL_CONNECTED);i++)
+  wl_status_t resCon;
+  for (i = 0; i < WIFI_CONNECTION_TRIES_BEFORE_ERROR; i++)
   {
-    // Wait for the Wi-Fi to connect: scan for Wi-Fi networks, and connect to the strongest of the networks above
-    delay(50);
-  }
+    resCon = _pWifiMulti->run();
+    if (resCon == WL_CONNECTED)
+    {
+      // Wait for the Wi-Fi to connect: scan for Wi-Fi networks, and connect to the strongest of the networks above
+      delay(100);
+      LOG("Connected to ")
+      LOG(WiFi.SSID().c_str())              // Tell us what network we're connected to
+      LOG(" IP address: ")
+      LOG_LN(WiFi.localIP())
 
-  if (i<WIFI_CONNECTION_TRIES_BEFORE_ERROR)
-  {
-    LOG("Connected to ")
-    LOG(WiFi.SSID().c_str())              // Tell us what network we're connected to
-    LOG(" IP address: ")
-    LOG_LN(WiFi.localIP())
-  
-  
-    if (!MDNS.begin(parameters.DeviceName().c_str())) {   // Start the mDNS responder for DEVICENAME.local
-      LOG_LN("Error setting up MDNS responder")
+      // Start the mDNS responder for DEVICENAME.local
+      if (!MDNS.begin(parameters.DeviceName().c_str()))
+      { 
+        LOG_LN("Error setting up MDNS responder")
+      } else {
+        LOG("Device answers to ")
+        LOG(parameters.DeviceName().c_str())
+        LOG_LN(".local")
+      }
+      return true;
     }
-
-    LOG("Device answers to ")
-    LOG(parameters.DeviceName().c_str())
-    LOG_LN(".local")
-
-    return true;
-  } else {
-
-    delete _pWifiMulti;
-    _lastFailedWifiAttemptAt = millis();
-    _wifiSetupFailed++;
-    LOG_LN("Failed to connect to wifi network, try again later, use softAP for now");
-    ConfSoftApWebServer();
-    return false;
   }
+
+  delete _pWifiMulti;
+  _lastFailedWifiAttemptAt = millis();
+  _wifiSetupFailed++;
+  LOG_LN("Failed to connect to wifi network, try again later, use softAP for now");
+  ConfSoftApWebServer();
+  return false;
 }
 
 bool LocalNetwork::CheckWifi(void)
@@ -309,7 +325,7 @@ bool LocalNetwork::CheckWifi(void)
   bool ret = false;
   if (WiFi.status() != WL_CONNECTED)
   {
-    if (TryWifiConnect()) 
+    if (TryWifiConnect())
     { /* we went from "unconnected" to "connected" */
       /* stop the webserver with the configuration, unless told not to */
       _webServer.close();
@@ -376,16 +392,16 @@ void LocalNetwork::ProcessNtpEvents(void)
         LOG_LN("Invalid NTP server address")
       }
     } else {
-    LOG("Setting time to  ")
-    
-    LOG(NTP.getTimeDateString(NTP.getLastNTPSync()))
-    LOG_LN(" and interval to 10mins / 1day")
-    // set the system to do a sync every 86400 seconds when succesful, so once a day
-    // if not successful, try syncing every 600s, so every 10 mins
-    NTP.setInterval(600, 86400);
+      LOG("Setting time to  ")
+
+      LOG(NTP.getTimeDateString(NTP.getLastNTPSync()))
+      LOG_LN(" and interval to 10mins / 1day")
+      // set the system to do a sync every 86400 seconds when succesful, so once a day
+      // if not successful, try syncing every 600s, so every 10 mins
+      NTP.setInterval(600, 86400);
 
     }
-  _ntpEventTriggered = false;
+    _ntpEventTriggered = false;
   }
 }
 
@@ -393,14 +409,14 @@ void LocalNetwork::TryReconnectMqtt(void)
 {
   LOG("Attempting MQTT connection...")
   // Attempt to connect
-  if (_mqttClient.connect(parameters.DeviceName().c_str(), parameters.MqttUsername().c_str(),parameters.MqttPwd().c_str()))
+  if (_mqttClient.connect(parameters.DeviceName().c_str(), parameters.MqttUsername().c_str(), parameters.MqttPwd().c_str()))
   {
     LOG_LN(" connected")
 
     /* subscribe to the set topics */
-    allSensorsAndActuators.SubscribeToMqttSetTopic(_mqttClient);
+    allocatedPins.SubscribeToMqttSetTopic(_mqttClient);
     /* send our current state */
-    allSensorsAndActuators.PublishMqttState(_mqttClient);
+    allocatedPins.PublishMqttState(_mqttClient);
 
   } else {
     LOG(" failed, rc=");
@@ -437,7 +453,7 @@ void LocalNetwork::AirconCommandCallback(char* topic, byte* payload, unsigned in
     return;
   }
   /* this is for us. Send it to actuators */
-  allSensorsAndActuators.ProcessMqttRequest(topic, message);
+  allocatedPins.ProcessMqttRequest(topic, message);
 
 }
 
@@ -446,20 +462,21 @@ void LocalNetwork::AirconCommandCallback(char* topic, byte* payload, unsigned in
 void LocalNetwork::SendStandardWebInterface(ESP8266WebServer &webServer)
 {
   /* Send the command to read sensors */
-  allSensorsAndActuators.UpdateAllSensors();
+  allocatedPins.UpdateAllSensors();
 
-  string resp("<HTML><head><title>");
+  string resp("<!DOCTYPE html><html lang=\"fr-FR\"><head><title>");
   resp.append(parameters.DeviceName().c_str());
   resp.append(" frontend </title>");
   Parameters::AppendCss(resp);
-  resp.append("<div class=SAparagraph><H1><center>");
+  resp.append("</head><div><H1>");
   resp.append(parameters.DeviceName().c_str());
-  resp.append(" frontend</H1></center></div><BR><BR>");
+  resp.append(" frontend</H1><BR>");
 
   char localConvertBuffer[10] = {0};
-  resp.append("<table>");
-  allSensorsAndActuators.AppendWebData(resp);
-  resp.append("</table></body></html>");
+//  resp.append("<table>");
+  allocatedPins.AppendWebData(resp);
+//  resp.append("</table></body></html>");
+  resp.append("</body></html>");
   webServer.send(200, "text/html", resp.c_str());
 }
 
@@ -476,7 +493,7 @@ void LocalNetwork::HandleWebInterface(ESP8266WebServer &webServer)
 
 void LocalNetwork::HandleCommmand(void)
 {
-  allSensorsAndActuators.ProcessWebRequest(&_webServer);
+  allocatedPins.ProcessWebRequest(&_webServer);
 }
 
 void LocalNetwork::HandleNotFound(void)

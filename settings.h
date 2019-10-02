@@ -29,7 +29,7 @@ SOFTWARE.
 /* remove this line to be able to compile. Please do it once 
  *  mac address is set */
 
-#error configure settings.h before compiling, then remove this line
+//#error configure settings.h before compiling, then remove this line
 
 /**************************** device nae, used for OTA, MQTT, mDNS,html ***********/
 #define DEVICENAME "defaultDeviceNameNoSpace" 
@@ -94,6 +94,15 @@ SOFTWARE.
 #define DEFAULT_SWING_H 0
 #define DEFAULT_SWING_V 0
 #define DEFAULT_MODE DAIKIN_COOL
+
+/***************************** SUPPORTED SENSORS AND ACTUATORS ******************/
+#define SUPPORTED_SENSORS_COUNT 2
+#define SENSOR_DS18_ID 1
+#define SENSOR_DHT22_ID 2
+#define SUPPORTED_SENSORS {"1wire DS18","DHT22"}
+#define SUPPORTED_ACTUATORS_COUNT 1
+#define SUPPORTED_ACTUATORS {"DAIKIN AIRCON COMMAND"}
+#define ACTUATOR_DAIKIN_AIRCON_ID 1
 
 /********************************** WEBSERVERS **********************************/
 #define WEBSERVER_PORT 80

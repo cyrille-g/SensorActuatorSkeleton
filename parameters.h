@@ -28,18 +28,27 @@ SOFTWARE.
 #include <ESP8266WebServer.h>
 #include <string>
 
+typedef enum {
+  CGE_NONE = 0,
+  CGE_INPUT = 1,
+  CGE_OUTPUT = 2
+} CGE_PinDirection_t;
+
 class Parameters
 {
   public:
 
-    Parameters(void);
     static void AppendCss(std::string &str);
+    static void AppendSaveToFlash(std::string &Str);
+
+    Parameters(void);
+      
     void HandleConfWifi(ESP8266WebServer &webServer);
     void HandleConfMqtt(ESP8266WebServer &webServer);
     void HandleConfNtp(ESP8266WebServer &webServer);
     void HandleConfDeviceName(ESP8266WebServer &webServer);
-    void HandleConfOta(ESP8266WebServer &webServer);
     void HandleConfConf(ESP8266WebServer &webServer);
+    void HandleConfPins(ESP8266WebServer &webServer);
     void HandleSaveToFlash(ESP8266WebServer &webServer);
     void HandleConfiguration(ESP8266WebServer &webServer);
     
@@ -67,10 +76,18 @@ class Parameters
     int OtaPort(void) { return _otaPort;}
     std::string OtaPwd(void) { return  _otaPwd; }
 
+    bool IsInput(uint8_t pin);
+    bool IsOutput(uint8_t pin);
+    uint8_t GetSensorIdOnPin(uint8_t pin);
+    uint8_t GetActuatorIdOnPin(uint8_t pin);
+
+
     void begin(void);
     
     
   private:
+    char _localConvertBuffer[10];
+  
     std::string _deviceName;
     
     std::string _mainSsid;
@@ -94,6 +111,9 @@ class Parameters
     uint16_t _otaPort;
     std::string _otaPwd;  
 
+    CGE_PinDirection_t _direction[8]; /* 0: not selected; 1: INPUT (sensor) 2: OUTPUT (actuator) */
+    uint8_t _actuatorSensor[8]; /* we depend on the direction bitfield to interpret this value either as an actuator or a sensor */
+
     unsigned long int _lastSaveAt;
 
     int SaveStringInEeprom(int addr,std::string data);
@@ -101,6 +121,7 @@ class Parameters
     int LoadStringFromEeprom(int addr, std::string &str);
     bool LoadFromEeprom(void);
     void ResetToDefault(void);
+
 };
 
 extern Parameters parameters;

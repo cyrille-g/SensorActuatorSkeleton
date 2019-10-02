@@ -48,7 +48,7 @@ class GenericActuator {
     bool isItMyName(char *name) { return (strcmp(name, _actuatorName.c_str())== 0);}
     bool isItMySetTopic(char *setTopic)  { return (strcmp(setTopic, _setTopic.c_str())== 0);}
     
-    static std::list<GenericActuator *> FindActuators(int pin);
+    static std::list<GenericActuator *> FindActuators(std::pair<uint8_t,uint8_t> *pPinDefinition);
     
   protected:
     std::string _actuatorName;
